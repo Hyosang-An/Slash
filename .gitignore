@@ -1,5 +1,7 @@
 # Contnets of this file are ignored by Git
-Content/
+Content/**
+!Content/Blueprints/
+!Content/Blueprints/**
 
 
 # --- Unreal Engine ---
