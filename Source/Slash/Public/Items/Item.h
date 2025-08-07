@@ -12,10 +12,11 @@ UCLASS()
 class SLASH_API AItem : public AActor
 {
 	GENERATED_BODY()
-	
-public:	
+
+public:
 	AItem();
 	virtual void Tick(float DeltaTime) override;
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -31,7 +32,7 @@ protected:
 	UFUNCTION(BlueprintPure)
 	float TransformedCos();
 
-	template<typename T>
+	template <typename T>
 	T Avg(T First, T Second);
 
 	UFUNCTION()
@@ -39,19 +40,20 @@ protected:
 
 	UFUNCTION()
 	virtual void OnSphereEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
-	
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	UStaticMeshComponent* ItemMesh;
+
 private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	float RunningTime;
 
-	UPROPERTY(VisibleAnywhere)
-	UStaticMeshComponent* ItemMesh;
 
 	UPROPERTY(VisibleAnywhere)
 	USphereComponent* Sphere;
 };
 
-template<typename T>
+template <typename T>
 inline T AItem::Avg(T First, T Second)
 {
 	return (First + Second) / 2;

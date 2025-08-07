@@ -3,15 +3,19 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "CharacterTypes.h"
 #include "GameFramework/Character.h"
 #include "SlashCharacter.generated.h"
 
+class AItem;
 class UGroomComponent;
 class UCameraComponent;
 class USpringArmComponent;
 struct FInputActionValue;
 class UInputAction;
 class UInputMappingContext;
+
+
 
 UCLASS()
 class SLASH_API ASlashCharacter : public ACharacter
@@ -55,8 +59,12 @@ protected:
 
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
+	void EKeyPressed();
+	void Attack();
 
 private:
+	ECharacterState CharacterState = ECharacterState::ECS_Unequipped;
+	
 	UPROPERTY(VisibleAnywhere)
 	USpringArmComponent* CameraBoom;
 
@@ -68,6 +76,14 @@ private:
 
 	UPROPERTY(VisibleAnywhere, Category="Hair")
 	UGroomComponent* Eyebrows;
-	
+
+	UPROPERTY(VisibleInstanceOnly)
+	AItem* OverlappingItem;
+
+	UPROPERTY(EditDefaultsOnly, Category = Montages)
+	UAnimMontage* AttackMontage;
+
 public:
+	FORCEINLINE void SetOverlappingItem(AItem* Item) { OverlappingItem = Item; }
+	FORCEINLINE ECharacterState GetCharacterState() const { return CharacterState; }
 };
