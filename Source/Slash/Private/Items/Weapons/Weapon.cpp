@@ -6,6 +6,7 @@
 #include "Characters/SlashCharacter.h"
 #include "Components/BoxComponent.h"
 #include "Components/SphereComponent.h"
+#include "Interfaces/HitInterface.h"
 #include "Kismet/GameplayStatics.h"
 
 AWeapon::AWeapon()
@@ -13,7 +14,7 @@ AWeapon::AWeapon()
 	WeaponBox = CreateDefaultSubobject<UBoxComponent>(TEXT("Weapon Box"));
 	WeaponBox->SetupAttachment(RootComponent);
 
-	WeaponBox->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	WeaponBox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	WeaponBox->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Overlap);
 	WeaponBox->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Ignore);
 
@@ -84,4 +85,12 @@ void AWeapon::OnBoxOverlap(UPrimitiveComponent* OverlappedComponent, AActor* Oth
 		BoxHit,
 		true
 		);
+
+	if (BoxHit.GetActor())
+	{
+		if (IHitInterface* HitInterface = Cast<IHitInterface>(BoxHit.GetActor()))
+		{
+			HitInterface->GetHit(BoxHit.ImpactPoint);
+		}
+	}
 }
