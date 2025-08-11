@@ -43,7 +43,10 @@ private:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	USceneComponent* BoxTraceEnd;
+	
+	TArray<AActor*> IgnoreActors;
 
 public:
 	FORCEINLINE UBoxComponent* GetWeaponBox() const { return WeaponBox; }
+	FORCEINLINE void ClearIgnoreActors() { IgnoreActors.Empty(); }
 };
