@@ -5,6 +5,7 @@
 
 #include "Components/AttributeComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "HUD/HealthBarComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Slash/DebugMacros.h"
@@ -21,7 +22,10 @@ AEnemy::AEnemy()
 	GetMesh()->SetGenerateOverlapEvents(true);
 	GetCapsuleComponent()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
 
-	Attibutes = CreateDefaultSubobject<UAttributeComponent>(TEXT("Attributes"));
+	Attributes = CreateDefaultSubobject<UAttributeComponent>(TEXT("Attributes"));
+
+	HealthBarWidget = CreateDefaultSubobject<UHealthBarComponent>(TEXT("HealthBarWidget"));
+	HealthBarWidget->SetupAttachment(GetRootComponent());
 }
 
 // Called when the game starts or when spawned
@@ -29,6 +33,8 @@ void AEnemy::BeginPlay()
 {
 	Super::BeginPlay();
 
+	if (Attributes && HealthBarWidget)
+		HealthBarWidget->SetHealthPercent(Attributes->GetHealthPercent());
 }
 
 void AEnemy::PlayHitReactMontage(const FName& SectionName)
@@ -92,7 +98,7 @@ void AEnemy::DirectionalHitReact(const FVector& ImpactPoint)
 	}
 
 	PlayHitReactMontage(Section);
-	
+
 	/*
 	UKismetSystemLibrary::DrawDebugArrow(this, GetActorLocation(), GetActorLocation() + CrossProduct * 100.f, 5.f, FColor::Blue, 5.f);
 
@@ -103,7 +109,7 @@ void AEnemy::DirectionalHitReact(const FVector& ImpactPoint)
 	UKismetSystemLibrary::DrawDebugArrow(this, GetActorLocation(), GetActorLocation() + Forward * 60.f, 5.f, FColor::Red, 5.f);
 	UKismetSystemLibrary::DrawDebugArrow(this, GetActorLocation(), GetActorLocation() + ToHit * 60.f, 5.f, FColor::Green, 5.f);
 	*/
-	
+
 }
 
 void AEnemy::GetHit_Implementation(const FVector& ImpactPoint)
@@ -120,4 +126,15 @@ void AEnemy::GetHit_Implementation(const FVector& ImpactPoint)
 	{
 		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), HitParticle, ImpactPoint);
 	}
+}
+
+float AEnemy::TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, AActor* DamageCauser)
+{
+	if (Attributes && HealthBarWidget)
+	{
+		Attributes->ReceiveDamage(DamageAmount);
+		HealthBarWidget->SetHealthPercent(Attributes->GetHealthPercent());
+	}
+
+	return DamageAmount;
 }
