@@ -3,6 +3,7 @@
 
 #include "Items/Weapons/Weapon.h"
 
+#include "NiagaraComponent.h"
 #include "Characters/SlashCharacter.h"
 #include "Components/BoxComponent.h"
 #include "Components/SphereComponent.h"
@@ -51,6 +52,11 @@ void AWeapon::Equip(USceneComponent* InParent, FName InSocketName)
 	if (Sphere)
 	{
 		Sphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	}
+
+	if (EmbersEffect)
+	{
+		EmbersEffect->Deactivate();
 	}
 }
 
