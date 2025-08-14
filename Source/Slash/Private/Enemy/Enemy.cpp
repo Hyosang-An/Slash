@@ -5,9 +5,12 @@
 
 #include "Components/AttributeComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "HUD/HealthBarComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "Navigation/PathFollowingComponent.h"
+#include "Runtime/AIModule/Classes/AIController.h"
 #include "Slash/DebugMacros.h"
 
 // Sets default values
@@ -26,6 +29,11 @@ AEnemy::AEnemy()
 
 	HealthBarWidget = CreateDefaultSubobject<UHealthBarComponent>(TEXT("HealthBarWidget"));
 	HealthBarWidget->SetupAttachment(GetRootComponent());
+
+	GetCharacterMovement()->bOrientRotationToMovement = true;
+	bUseControllerRotationRoll = false;
+	bUseControllerRotationPitch = false;
+	bUseControllerRotationYaw = false;
 }
 
 // Called when the game starts or when spawned
@@ -34,7 +42,88 @@ void AEnemy::BeginPlay()
 	Super::BeginPlay();
 
 	if (Attributes && HealthBarWidget)
+	{
 		HealthBarWidget->SetHealthPercent(Attributes->GetHealthPercent());
+
+		HealthBarWidget->SetVisibility(false);
+	}
+
+	// Start the timer to check when enemy can begin patrolling 
+	// (depends on NavMesh being ready)
+	GetWorldTimerManager().SetTimer(BeginPatrolTimer, this, &AEnemy::BeginPatrolling, 1.0f, true);
+
+	// EnemyController = Cast<AAIController>(GetController());
+	// if (EnemyController && CurrentPatrolTarget)
+	// {
+	// 	UE_LOG(LogTemp, Warning, TEXT("Patrol Target"));
+	// 	
+	// 	FAIMoveRequest MoveRequest;
+	// 	MoveRequest.SetGoalActor(CurrentPatrolTarget);
+	// 	MoveRequest.SetAcceptanceRadius(15.f);
+	//
+	// 	FNavPathSharedPtr NavPath;
+	// 	EnemyController->MoveTo(MoveRequest, &NavPath);
+	// 	if (NavPath)
+	// 	{
+	// 		TArray<FNavPathPoint>& PathPoints = NavPath->GetPathPoints();
+	// 		for (auto& Points : PathPoints)
+	// 		{
+	// 			const FVector& Location = Points.Location;
+	// 			DrawDebugSphere(GetWorld(), Location, 12.f, 12, FColor::Green, false, 10.f);
+	// 		}
+	// 	}
+	// }
+}
+
+void AEnemy::Die()
+{
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance && DeathMontage)
+	{
+		AnimInstance->Montage_Play(DeathMontage);
+
+		const int32 Selection = FMath::RandRange(0, 5);
+		FName       SectionName = FName();
+		switch (Selection)
+		{
+			case 0:
+				SectionName = FName("Death1");
+				DeathPose = EDeathPose::EDP_Death1;
+				break;
+			case 1:
+				SectionName = FName("Death2");
+				DeathPose = EDeathPose::EDP_Death2;
+				break;
+			case 2:
+				SectionName = FName("Death3");
+				DeathPose = EDeathPose::EDP_Death3;
+				break;
+			case 3:
+				SectionName = FName("Death4");
+				DeathPose = EDeathPose::EDP_Death4;
+				break;
+			case 4:
+				SectionName = FName("Death5");
+				DeathPose = EDeathPose::EDP_Death5;
+				break;
+			case 5:
+				SectionName = FName("Death6");
+				DeathPose = EDeathPose::EDP_Death6;
+				break;
+			default:
+				break;
+		}
+
+		AnimInstance->Montage_JumpToSection(SectionName, DeathMontage);
+	}
+
+	if (HealthBarWidget)
+	{
+		HealthBarWidget->SetVisibility(false);
+	}
+
+	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	SetLifeSpan(7.f); // Destroy after 3 seconds
 }
 
 void AEnemy::PlayHitReactMontage(const FName& SectionName)
@@ -47,10 +136,49 @@ void AEnemy::PlayHitReactMontage(const FName& SectionName)
 	}
 }
 
+void AEnemy::BeginPatrolling()
+{
+	// Set up patrolling AI Navigation
+	EnemyController = Cast<AAIController>(GetController());
+	if (EnemyController && CurrentPatrolTarget)
+	{
+		FAIMoveRequest MoveRequest;
+		MoveRequest.SetGoalActor(CurrentPatrolTarget);
+		MoveRequest.SetAcceptanceRadius(15.f);
+		FNavPathSharedPtr NavPath;
+		EnemyController->MoveTo(MoveRequest, &NavPath);
+		if (NavPath)
+		{
+			// stop timer now NavMesh is there			
+			GetWorldTimerManager().ClearTimer(BeginPatrolTimer); 
+			TArray<FNavPathPoint>& PathPoints = NavPath->GetPathPoints();
+			for (auto& Point : PathPoints)
+			{
+				const FVector& Location = Point.Location;
+				DrawDebugSphere(GetWorld(), Location, 12.f, 12, FColor::Red, false, 10.f);
+			}
+		}
+	}
+}
+
 // Called every frame
 void AEnemy::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	if (CombatTarget)
+	{
+		//const double DistanceToTarget = GetDistanceTo(CombatTarget);
+		const double DistanceToTarget = (GetActorLocation() - CombatTarget->GetActorLocation()).Size();
+		if (DistanceToTarget > CombatRange)
+		{
+			CombatTarget = nullptr;
+			if (HealthBarWidget)
+			{
+				HealthBarWidget->SetVisibility(false);
+			}
+		}
+	}
 
 }
 
@@ -63,6 +191,11 @@ void AEnemy::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 
 void AEnemy::DirectionalHitReact(const FVector& ImpactPoint)
 {
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(1, 5.f, FColor::Green, TEXT("Hit React"));
+	}
+
 	const FVector Forward = GetActorForwardVector();
 	// Lower Impact Point to the Enemy's Actor Location Z
 	const FVector ImpactLowered(ImpactPoint.X, ImpactPoint.Y, GetActorLocation().Z);
@@ -116,7 +249,19 @@ void AEnemy::GetHit_Implementation(const FVector& ImpactPoint)
 {
 	// DRAW_SPHERE_COLOR(ImpactPoint, FColor::Orange);
 
-	DirectionalHitReact(ImpactPoint);
+	if (HealthBarWidget)
+	{
+		HealthBarWidget->SetVisibility(true);
+	}
+
+	if (Attributes && Attributes->IsAlive())
+	{
+		DirectionalHitReact(ImpactPoint);
+	}
+	else
+	{
+		Die();
+	}
 
 	if (HitSound)
 	{
@@ -135,6 +280,8 @@ float AEnemy::TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEv
 		Attributes->ReceiveDamage(DamageAmount);
 		HealthBarWidget->SetHealthPercent(Attributes->GetHealthPercent());
 	}
+
+	CombatTarget = EventInstigator->GetPawn();
 
 	return DamageAmount;
 }

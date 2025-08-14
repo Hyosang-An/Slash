@@ -4,6 +4,7 @@
 #include "Items/Weapons/Weapon.h"
 
 #include "NiagaraComponent.h"
+#include "Breakable/BreakableActor.h"
 #include "Characters/SlashCharacter.h"
 #include "Components/BoxComponent.h"
 #include "Components/SphereComponent.h"
@@ -103,14 +104,17 @@ void AWeapon::OnBoxOverlap(UPrimitiveComponent* OverlappedComponent, AActor* Oth
 
 	if (BoxHit.GetActor())
 	{
+		UGameplayStatics::ApplyDamage(BoxHit.GetActor(), Damage, GetInstigatorController(), this, UDamageType::StaticClass());
+		
 		if (IHitInterface* HitInterface = Cast<IHitInterface>(BoxHit.GetActor()))
 		{
 			HitInterface->Execute_GetHit(BoxHit.GetActor(), BoxHit.ImpactPoint);
 		}
 		IgnoreActors.AddUnique(BoxHit.GetActor());
 
-		CreateFields(BoxHit.ImpactPoint);
-
-		UGameplayStatics::ApplyDamage(BoxHit.GetActor(), Damage, GetInstigatorController(), this, UDamageType::StaticClass());
+		if (Cast<ABreakableActor>(BoxHit.GetActor()))
+		{
+			CreateFields(BoxHit.ImpactPoint);
+		}
 	}
 }
