@@ -10,6 +10,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Navigation/PathFollowingComponent.h"
+#include "Perception/PawnSensingComponent.h"
 #include "Runtime/AIModule/Classes/AIController.h"
 #include "Slash/DebugMacros.h"
 
@@ -25,10 +26,12 @@ AEnemy::AEnemy()
 	GetMesh()->SetGenerateOverlapEvents(true);
 	GetCapsuleComponent()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
 
-	Attributes = CreateDefaultSubobject<UAttributeComponent>(TEXT("Attributes"));
-
 	HealthBarWidget = CreateDefaultSubobject<UHealthBarComponent>(TEXT("HealthBarWidget"));
 	HealthBarWidget->SetupAttachment(GetRootComponent());
+
+	PawnSensing = CreateDefaultSubobject<UPawnSensingComponent>(TEXT("PawnSensing"));
+	PawnSensing->SightRadius = 4000.f;
+	PawnSensing->SetPeripheralVisionAngle(45.f);
 
 	GetCharacterMovement()->bOrientRotationToMovement = true;
 	bUseControllerRotationRoll = false;
@@ -48,31 +51,78 @@ void AEnemy::BeginPlay()
 		HealthBarWidget->SetVisibility(false);
 	}
 
+	EnemyController = Cast<AAIController>(GetController());
+
 	// Start the timer to check when enemy can begin patrolling 
 	// (depends on NavMesh being ready)
 	GetWorldTimerManager().SetTimer(BeginPatrolTimer, this, &AEnemy::BeginPatrolling, 1.0f, true);
 
-	// EnemyController = Cast<AAIController>(GetController());
-	// if (EnemyController && CurrentPatrolTarget)
-	// {
-	// 	UE_LOG(LogTemp, Warning, TEXT("Patrol Target"));
-	// 	
-	// 	FAIMoveRequest MoveRequest;
-	// 	MoveRequest.SetGoalActor(CurrentPatrolTarget);
-	// 	MoveRequest.SetAcceptanceRadius(15.f);
-	//
-	// 	FNavPathSharedPtr NavPath;
-	// 	EnemyController->MoveTo(MoveRequest, &NavPath);
-	// 	if (NavPath)
-	// 	{
-	// 		TArray<FNavPathPoint>& PathPoints = NavPath->GetPathPoints();
-	// 		for (auto& Points : PathPoints)
-	// 		{
-	// 			const FVector& Location = Points.Location;
-	// 			DrawDebugSphere(GetWorld(), Location, 12.f, 12, FColor::Green, false, 10.f);
-	// 		}
-	// 	}
-	// }
+	if (PawnSensing)
+	{
+		PawnSensing->OnSeePawn.AddDynamic(this, &AEnemy::PawnSeen);
+	}
+}
+
+/**
+ * CombatTarget와의 거리를 확인하여, CombatTarget이 범위를 벗어나면 CombatTarget을 nullptr로 설정하고 HealthBarWidget을 숨깁니다.
+ */
+void AEnemy::CheckCombatTarget()
+{
+	if (!InTargetRange(CombatTarget, CombatRange))
+	{
+		// Outside combat radius, lose interest
+		CombatTarget = nullptr;
+		if (HealthBarWidget)
+		{
+			HealthBarWidget->SetVisibility(false);
+		}
+
+		EnemyState = EEnemyState::EES_Patrolling;
+		GetCharacterMovement()->MaxWalkSpeed = 125.f; // Reset speed to patrol speed
+		MoveToTarget(CurrentPatrolTarget);
+	}
+	else if (!InTargetRange(CombatTarget, AttackRange) && EnemyState != EEnemyState::EES_Chasing)
+	{
+		// Outside attack radius, chase the target
+		EnemyState = EEnemyState::EES_Chasing;
+		GetCharacterMovement()->MaxWalkSpeed = 300.f; // Set speed to chase speed
+		MoveToTarget(CombatTarget);
+	}
+	else if (InTargetRange(CombatTarget, AttackRange) && EnemyState != EEnemyState::EES_Attacking)
+	{
+		// Inside Attack range, attack character
+		EnemyState = EEnemyState::EES_Attacking;
+		// TODO: Attack Montage
+	}
+}
+
+/**
+ * 순찰 대상과의 거리를 확인하여 도달했을 때 새로운 순찰 지점을 선택하고,
+ * 대기 시간을 랜덤으로 설정한 후 타이머를 시작합니다.
+ */
+void AEnemy::CheckPatrolTarget()
+{
+	if (InTargetRange(CurrentPatrolTarget, PatrolRadius))
+	{
+		CurrentPatrolTarget = ChoosePatrolTarget();
+		const float WaitTime = FMath::RandRange(WaitMin, WaitMax);
+		GetWorldTimerManager().SetTimer(PatrolTimer, this, &AEnemy::PatrolTimerFinished, WaitTime);
+	}
+}
+
+// Called every frame
+void AEnemy::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	if (EnemyState > EEnemyState::EES_Patrolling)
+	{
+		CheckCombatTarget();
+	}
+	else
+	{
+		CheckPatrolTarget();
+	}
 }
 
 void AEnemy::Die()
@@ -126,122 +176,106 @@ void AEnemy::Die()
 	SetLifeSpan(7.f); // Destroy after 3 seconds
 }
 
-void AEnemy::PlayHitReactMontage(const FName& SectionName)
+bool AEnemy::InTargetRange(AActor* Target, double Radius)
 {
-	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
-	if (AnimInstance && HitReactMontage)
+	if (Target == nullptr)
+		return false;
+
+	const double DistanceToTarget = (GetActorLocation() - Target->GetActorLocation()).Size();
+
+	return DistanceToTarget <= Radius;
+}
+
+
+/**
+ * 감지된 Pawn이 "SlashCharacter" 태그를 가지고 있는 경우, 추적 상태로 전환하고 해당 Pawn을 목표로 설정하며 추적을 시작합니다.
+ * 추적 상태 전환 시, 전역 타이머를 정리하고 이동 속도를 300.f로 설정합니다.
+ *
+ * @param SeenPawn 감지된 Pawn 객체
+ */
+void AEnemy::PawnSeen(APawn* SeenPawn)
+{
+	if (EnemyState == EEnemyState::EES_Chasing)
+		return;
+
+	if (SeenPawn->ActorHasTag(FName("SlashCharacter")))
 	{
-		AnimInstance->Montage_Play(HitReactMontage);
-		AnimInstance->Montage_JumpToSection(SectionName, HitReactMontage);
+		GetWorldTimerManager().ClearTimer(PatrolTimer);
+		GetCharacterMovement()->MaxWalkSpeed = 300.f;
+		CombatTarget = SeenPawn;
+
+		if (EnemyState != EEnemyState::EES_Attacking)
+		{
+			EnemyState = EEnemyState::EES_Chasing;
+			MoveToTarget(CombatTarget);
+		}
 	}
+}
+
+void AEnemy::MoveToTarget(AActor* Target)
+{
+	if (EnemyController == nullptr || Target == nullptr)
+		return;
+
+	FAIMoveRequest MoveRequest;
+	MoveRequest.SetGoalActor(Target);
+	MoveRequest.SetAcceptanceRadius(15.f);
+
+	EnemyController->MoveTo(MoveRequest);
+}
+
+AActor* AEnemy::ChoosePatrolTarget()
+{
+	TArray<AActor*> ValidTargets;
+	for (auto Target : PatrolTargets)
+	{
+		if (Target != CurrentPatrolTarget)
+		{
+			ValidTargets.AddUnique(Target);
+		}
+	}
+
+	const int32 NumPatrolTargets = ValidTargets.Num();
+	if (NumPatrolTargets > 0)
+	{
+		const int32 TargetSelection = FMath::RandRange(0, NumPatrolTargets - 1);
+		return ValidTargets[TargetSelection];
+	}
+
+	return nullptr;
 }
 
 void AEnemy::BeginPatrolling()
 {
 	// Set up patrolling AI Navigation
-	EnemyController = Cast<AAIController>(GetController());
-	if (EnemyController && CurrentPatrolTarget)
+	if (EnemyController == nullptr)
+		return;
+
+	CurrentPatrolTarget = ChoosePatrolTarget();
+
+	FAIMoveRequest MoveRequest;
+	MoveRequest.SetGoalActor(CurrentPatrolTarget);
+	MoveRequest.SetAcceptanceRadius(15.f);
+	FNavPathSharedPtr NavPath;
+	EnemyController->MoveTo(MoveRequest, &NavPath);
+	if (NavPath)
 	{
-		FAIMoveRequest MoveRequest;
-		MoveRequest.SetGoalActor(CurrentPatrolTarget);
-		MoveRequest.SetAcceptanceRadius(15.f);
-		FNavPathSharedPtr NavPath;
-		EnemyController->MoveTo(MoveRequest, &NavPath);
-		if (NavPath)
-		{
-			// stop timer now NavMesh is there			
-			GetWorldTimerManager().ClearTimer(BeginPatrolTimer); 
-			TArray<FNavPathPoint>& PathPoints = NavPath->GetPathPoints();
-			for (auto& Point : PathPoints)
-			{
-				const FVector& Location = Point.Location;
-				DrawDebugSphere(GetWorld(), Location, 12.f, 12, FColor::Red, false, 10.f);
-			}
-		}
+		// stop timer now NavMesh is there			
+		GetWorldTimerManager().ClearTimer(BeginPatrolTimer);
 	}
+
 }
 
-// Called every frame
-void AEnemy::Tick(float DeltaTime)
+void AEnemy::PatrolTimerFinished()
 {
-	Super::Tick(DeltaTime);
-
-	if (CombatTarget)
-	{
-		//const double DistanceToTarget = GetDistanceTo(CombatTarget);
-		const double DistanceToTarget = (GetActorLocation() - CombatTarget->GetActorLocation()).Size();
-		if (DistanceToTarget > CombatRange)
-		{
-			CombatTarget = nullptr;
-			if (HealthBarWidget)
-			{
-				HealthBarWidget->SetVisibility(false);
-			}
-		}
-	}
-
+	MoveToTarget(CurrentPatrolTarget);
 }
+
 
 // Called to bind functionality to input
 void AEnemy::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
-
-}
-
-void AEnemy::DirectionalHitReact(const FVector& ImpactPoint)
-{
-	if (GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(1, 5.f, FColor::Green, TEXT("Hit React"));
-	}
-
-	const FVector Forward = GetActorForwardVector();
-	// Lower Impact Point to the Enemy's Actor Location Z
-	const FVector ImpactLowered(ImpactPoint.X, ImpactPoint.Y, GetActorLocation().Z);
-	const FVector ToHit = (ImpactLowered - GetActorLocation()).GetSafeNormal();
-
-	// Forward * ToHit = |Forward||ToHit| * cos(theta)
-	// |Forward| = 1, |ToHit| = 1, so Forward * ToHit = cos(theta)
-	const double CosTheta = FVector::DotProduct(Forward, ToHit);
-	// Take the inverse cosine (arc-cosine) of cos(theta) to get theta
-	double Theta = FMath::Acos(CosTheta);
-	// convert from radians to degrees
-	Theta = FMath::RadiansToDegrees(Theta);
-
-	// if CrossProduct points down, Theta should be negative
-	const FVector CrossProduct = FVector::CrossProduct(Forward, ToHit);
-	if (CrossProduct.Z < 0)
-	{
-		Theta *= -1.f;
-	}
-	FName Section("FromBack");
-
-	if (Theta >= -45.f && Theta < 45.f)
-	{
-		Section = FName("FromFront");
-	}
-	else if (Theta >= -135.f && Theta < -45.f)
-	{
-		Section = FName("FromLeft");
-	}
-	else if (Theta >= 45.f && Theta < 135.f)
-	{
-		Section = FName("FromRight");
-	}
-
-	PlayHitReactMontage(Section);
-
-	/*
-	UKismetSystemLibrary::DrawDebugArrow(this, GetActorLocation(), GetActorLocation() + CrossProduct * 100.f, 5.f, FColor::Blue, 5.f);
-
-	if (GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(1, 5.f, FColor::Green, FString::Printf(TEXT("Theta: %f"), Theta));
-	}
-	UKismetSystemLibrary::DrawDebugArrow(this, GetActorLocation(), GetActorLocation() + Forward * 60.f, 5.f, FColor::Red, 5.f);
-	UKismetSystemLibrary::DrawDebugArrow(this, GetActorLocation(), GetActorLocation() + ToHit * 60.f, 5.f, FColor::Green, 5.f);
-	*/
 
 }
 
@@ -267,9 +301,9 @@ void AEnemy::GetHit_Implementation(const FVector& ImpactPoint)
 	{
 		UGameplayStatics::PlaySoundAtLocation(this, HitSound, ImpactPoint);
 	}
-	if (HitParticle)
+	if (HitParticles)
 	{
-		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), HitParticle, ImpactPoint);
+		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), HitParticles, ImpactPoint);
 	}
 }
 
@@ -282,6 +316,9 @@ float AEnemy::TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEv
 	}
 
 	CombatTarget = EventInstigator->GetPawn();
+	EnemyState = EEnemyState::EES_Chasing;
+	MoveToTarget(CombatTarget);
+	GetCharacterMovement()->MaxWalkSpeed = 300.f; // Set speed to chase speed
 
 	return DamageAmount;
 }

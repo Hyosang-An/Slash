@@ -21,6 +21,8 @@ public:
 	void AttachMeshToSocket(USceneComponent* InParent, FName InSocketName);
 	void Equip(USceneComponent* InParent, FName InSocketName, AActor* NewOwner, APawn* NewInstigator);
 
+	TArray<AActor*> IgnoreActors;
+	
 protected:
 	virtual void BeginPlay() override;
 	
@@ -47,12 +49,10 @@ private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	USceneComponent* BoxTraceEnd;
 	
-	TArray<AActor*> IgnoreActors;
 
 	UPROPERTY(EditAnywhere, Category="weapon properties")
 	float Damage = 20.f;
 
 public:
 	FORCEINLINE UBoxComponent* GetWeaponBox() const { return WeaponBox; }
-	FORCEINLINE void ClearIgnoreActors() { IgnoreActors.Empty(); }
 };
