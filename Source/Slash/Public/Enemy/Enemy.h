@@ -22,23 +22,33 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
-	// Called to bind functionality to input
-	virtual void  SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	virtual void  GetHit_Implementation(const FVector& ImpactPoint) override;
 	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, AActor* DamageCauser) override;
+	virtual void  Destroyed() override;
 
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
 	virtual void Die() override;
-	bool InTargetRange(AActor* Target, double Radius);
+	bool         InTargetRange(AActor* Target, double Radius);
 
 	UFUNCTION()
 	void PawnSeen(APawn* Pawn);
 
+	virtual void  Attack() override;
+	virtual bool  CanAttack() override;
+	virtual void  HandleDamage(float DamageAmount) override;
+	virtual int32 PlayDeathMontage() override;
+
+	UPROPERTY(EditAnywhere, Category=Combat)
+	float DeathLifeSpan = 8.f;
+
 	UPROPERTY(BlueprintReadOnly)
-	EDeathPose DeathPose = EDeathPose::EDP_Alive;
+	TEnumAsByte<EDeathPose> DeathPose;
+
+	UPROPERTY(BlueprintReadOnly)
+	EEnemyState EnemyState = EEnemyState::EES_Patrolling;
 
 private:
 	/**
@@ -49,7 +59,9 @@ private:
 
 	UPROPERTY(VisibleAnywhere)
 	UPawnSensingComponent* PawnSensing;
-	
+
+	UPROPERTY(EditAnywhere)
+	TSubclassOf<class AWeapon> WeaponClass;
 
 	UPROPERTY()
 	AActor* CombatTarget;
@@ -59,7 +71,7 @@ private:
 
 	UPROPERTY(EditAnywhere)
 	double AttackRange = 150.f;
-	
+
 	/**
 	 * Navigation
 	 */
@@ -90,5 +102,36 @@ private:
 	UPROPERTY(EditAnywhere, Category="AI Navigation")
 	float WaitMax = 10.f;
 
-	EEnemyState EnemyState = EEnemyState::EES_Patrolling;
+	// Combat
+	void StartAttackTimer();
+
+	FTimerHandle AttackTimer;
+
+	UPROPERTY(EditAnywhere, Category=Combat)
+	float AttackMin = 0.5f;
+	float AttackMax = 1.f;
+
+	UPROPERTY(EditAnywhere, Category="Combat")
+	float PatrollingSpeed = 125.f;
+
+	UPROPERTY(EditAnywhere, Category="Combat")
+	float ChasingSpeed = 300.f;
+
+	// AI Behavior
+	void HideHealthBar();
+	void ShowHealthBar();
+	void LoseInterest();
+	void StartPatrolling();
+	void ChaseTarget();
+
+	bool IsOutsideCombatRadius();
+	bool IsOutsideAttackRadius();
+	bool IsInsideAttackRadius();
+	bool IsChasing();
+	bool IsAttacking();
+	bool IsDead();
+	bool IsEngaged();
+
+	void ClearPatrolTimer();
+	void ClearAttackTimer();
 };
