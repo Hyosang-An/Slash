@@ -16,16 +16,20 @@
 ASlashCharacter::ASlashCharacter()
 {
 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bCanEverTick = false;
 
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationRoll = false;
 
 	GetCharacterMovement()->bOrientRotationToMovement = true;
-	// Character will rotate to face the direction of movement
 	GetCharacterMovement()->RotationRate = FRotator(0.f, 400.f, 0.f);
-	// Rotation rate in degrees per second
+
+	GetMesh()->SetCollisionObjectType(ECollisionChannel::ECC_WorldDynamic);
+	GetMesh()->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
+	GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Visibility, ECollisionResponse::ECR_Block);
+	GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_WorldDynamic, ECR_Overlap);
+	GetMesh()->SetGenerateOverlapEvents(true);
 
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
 	CameraBoom->SetupAttachment(RootComponent);
@@ -62,7 +66,7 @@ void ASlashCharacter::BeginPlay()
 		}
 	}
 
-	Tags.Add(FName("SlashCharacter"));
+	Tags.Add(FName("EngageableTarget"));
 }
 
 void ASlashCharacter::Move(const FInputActionValue& Value)
@@ -77,11 +81,9 @@ void ASlashCharacter::Move(const FInputActionValue& Value)
 	const FRotator Rotation = GetController()->GetControlRotation();
 	const FRotator YawRotation(0.f, Rotation.Yaw, 0.f);
 
-	const FVector ForwardDirection = FRotationMatrix(YawRotation).
-		GetUnitAxis(EAxis::X);
+	const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
 	AddMovementInput(ForwardDirection, MovementVector.Y);
-	const FVector RightDirection = FRotationMatrix(YawRotation).
-		GetUnitAxis(EAxis::Y);
+	const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
 	AddMovementInput(RightDirection, MovementVector.X);
 
 	// Stop AttackMontage
@@ -103,8 +105,7 @@ void ASlashCharacter::Look(const FInputActionValue& Value)
 	}
 	else
 	{
-		UE_LOG(LogTemp, Warning,
-			TEXT("ASlashCharacter::Look - No controller found!"));
+		UE_LOG(LogTemp, Warning, TEXT("ASlashCharacter::Look - No controller found!"));
 	}
 }
 
@@ -112,26 +113,17 @@ void ASlashCharacter::EKeyPressed()
 {
 	if (AWeapon* OverlappingWeapon = Cast<AWeapon>(OverlappingItem))
 	{
-		OverlappingWeapon->Equip(GetMesh(), FName("RightHandSocket"), this, this);
-
-		CharacterState = ECharacterState::ECS_EquippedOneHandedWeapon;
-		OverlappingItem = nullptr;
-		EquippedWeapon = OverlappingWeapon;
+		EquipWeapon(OverlappingWeapon);
 	}
 	else
 	{
-		if (CanDisarm())
+		if (CanDisArm())
 		{
-			PlayEquipMontage(FName("Unequip"));
-			CharacterState = ECharacterState::ECS_Unequipped;
-			ActionState = EActionState::EAS_EquippingWeapon;
+			DisArm();
 		}
-
 		else if (CanArm())
 		{
-			PlayEquipMontage(FName("Equip"));
-			CharacterState = ECharacterState::ECS_EquippedOneHandedWeapon;
-			ActionState = EActionState::EAS_EquippingWeapon;
+			Arm();
 		}
 	}
 }
@@ -139,12 +131,19 @@ void ASlashCharacter::EKeyPressed()
 void ASlashCharacter::Attack()
 {
 	Super::Attack();
-	
 	if (CanAttack())
 	{
 		PlayAttackMontage();
 		ActionState = EActionState::EAS_Attacking;
 	}
+}
+
+void ASlashCharacter::EquipWeapon(AWeapon* Weapon)
+{
+	Weapon->Equip(GetMesh(), FName("RightHandSocket"), this, this);
+	CharacterState = ECharacterState::ECS_EquippedOneHandedWeapon;
+	OverlappingItem = nullptr;
+	EquippedWeapon = Weapon;
 }
 
 void ASlashCharacter::AttackEnd()
@@ -154,34 +153,43 @@ void ASlashCharacter::AttackEnd()
 
 bool ASlashCharacter::CanAttack()
 {
-	return ActionState == EActionState::EAS_Unoccupied &&
-		CharacterState != ECharacterState::ECS_Unequipped;
+	return ActionState == EActionState::EAS_Unoccupied && CharacterState != ECharacterState::ECS_Unequipped;
+}
+
+bool ASlashCharacter::CanDisArm()
+{
+	return ActionState == EActionState::EAS_Unoccupied && CharacterState != ECharacterState::ECS_Unequipped;
+}
+
+bool ASlashCharacter::CanArm()
+{
+	return ActionState == EActionState::EAS_Unoccupied && CharacterState == ECharacterState::ECS_Unequipped && EquippedWeapon;
+}
+
+void ASlashCharacter::DisArm()
+{
+	PlayEquipMontage(FName("Unequip"));
+	CharacterState = ECharacterState::ECS_Unequipped;
+	ActionState = EActionState::EAS_EquippingWeapon;
+}
+
+void ASlashCharacter::Arm()
+{
+	PlayEquipMontage(FName("Equip"));
+	CharacterState = ECharacterState::ECS_EquippedOneHandedWeapon;
+	ActionState = EActionState::EAS_EquippingWeapon;
 }
 
 void ASlashCharacter::PlayEquipMontage(const FName& SectionName)
 {
-	if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
-		AnimInstance && EquipMontage)
+	if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance(); AnimInstance && EquipMontage)
 	{
 		AnimInstance->Montage_Play(EquipMontage);
 		AnimInstance->Montage_JumpToSection(SectionName, EquipMontage);
 	}
 }
 
-bool ASlashCharacter::CanDisarm()
-{
-	return ActionState == EActionState::EAS_Unoccupied &&
-		CharacterState != ECharacterState::ECS_Unequipped;
-}
-
-bool ASlashCharacter::CanArm()
-{
-	return ActionState == EActionState::EAS_Unoccupied &&
-		CharacterState == ECharacterState::ECS_Unequipped &&
-		EquippedWeapon;
-}
-
-void ASlashCharacter::Disarm()
+void ASlashCharacter::AttachWeaponToBack()
 {
 	if (EquippedWeapon)
 	{
@@ -189,7 +197,7 @@ void ASlashCharacter::Disarm()
 	}
 }
 
-void ASlashCharacter::Arm()
+void ASlashCharacter::AttachWeaponToHand()
 {
 	if (EquippedWeapon)
 	{
@@ -202,10 +210,9 @@ void ASlashCharacter::FinishEquipping()
 	ActionState = EActionState::EAS_Unoccupied;
 }
 
-// Called every frame
-void ASlashCharacter::Tick(float DeltaTime)
+void ASlashCharacter::HitReactEnd()
 {
-	Super::Tick(DeltaTime);
+	ActionState = EActionState::EAS_Unoccupied;
 }
 
 // Called to bind functionality to input
@@ -222,4 +229,12 @@ void ASlashCharacter::SetupPlayerInputComponent(
 		EnhancedInputComponent->BindAction(EKeyAction, ETriggerEvent::Triggered, this, &ASlashCharacter::EKeyPressed);
 		EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Triggered, this, &ASlashCharacter::Attack);
 	}
+}
+
+void ASlashCharacter::GetHit_Implementation(const FVector& ImpactPoint, AActor* Hitter)
+{
+	Super::GetHit_Implementation(ImpactPoint, Hitter);
+
+	SetWeaponCollisionEnabled(ECollisionEnabled::NoCollision);
+	ActionState = EActionState::EAS_HitReaction;
 }

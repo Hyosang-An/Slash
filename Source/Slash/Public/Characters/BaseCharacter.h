@@ -22,6 +22,9 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+
+	// Combat
+	virtual void GetHit_Implementation(const FVector& ImpactPoint, AActor* Hitter) override;
 	virtual void Attack();
 	virtual void Die();
 	void         DirectionalHitReact(const FVector& ImpactPoint);
@@ -32,9 +35,11 @@ protected:
 	virtual bool CanAttack();
 	bool         IsAlive();
 
+	// Montages
 	void          PlayHitReactMontage(const FName& SectionName);
 	virtual int32 PlayAttackMontage();
 	virtual int32 PlayDeathMontage();
+	void          StopAttackMontage();
 
 	UFUNCTION(BlueprintCallable)
 	virtual void AttackEnd();
@@ -45,7 +50,7 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, Category = Weapon)
 	AWeapon* EquippedWeapon;
-	
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	UAttributeComponent* Attributes;
 
@@ -53,23 +58,23 @@ private:
 	void  PlayMontageSection(UAnimMontage* Montage, const FName& SectionName);
 	int32 PlayRandomMontageSection(UAnimMontage* Montage, const TArray<FName>& SectionNames);
 
-	UPROPERTY(EditAnywhere, Category = Sounds)
+	UPROPERTY(EditAnywhere, Category = Combat)
 	USoundBase* HitSound;
 
-	UPROPERTY(EditAnywhere, Category = VisualEffects)
+	UPROPERTY(EditAnywhere, Category = Combat)
 	UParticleSystem* HitParticles;
 
 protected:
 	/**
 	* Animation montages
 	*/
-	UPROPERTY(EditDefaultsOnly, Category = Montages)
+	UPROPERTY(EditDefaultsOnly, Category = Combat)
 	UAnimMontage* AttackMontage;
 
-	UPROPERTY(EditDefaultsOnly, Category = Montages)
+	UPROPERTY(EditDefaultsOnly, Category = Combat)
 	UAnimMontage* HitReactMontage;
 
-	UPROPERTY(EditDefaultsOnly, Category = Montages)
+	UPROPERTY(EditDefaultsOnly, Category = Combat)
 	UAnimMontage* DeathMontage;
 
 	UPROPERTY(EditAnywhere, Category= Combat)

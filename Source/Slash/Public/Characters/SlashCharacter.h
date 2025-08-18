@@ -26,12 +26,9 @@ public:
 	// Sets default values for this character's properties
 	ASlashCharacter();
 
-	// Called every frame
-	virtual void Tick(float DeltaTime) override;
-
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
-
+	virtual void GetHit_Implementation(const FVector& ImpactPoint, AActor* Hitter) override;
 
 protected:
 	// Called when the game starts or when spawned
@@ -68,22 +65,27 @@ protected:
 	virtual void Attack() override;
 
 	// Combat
+	void EquipWeapon(AWeapon* Weapon);
 	virtual void AttackEnd() override;
 	virtual bool CanAttack() override;
-	bool CanDisarm();
+	bool CanDisArm();
 	bool CanArm();
+	void DisArm();
+	void Arm();
 	void PlayEquipMontage(const FName& SectionName);
 
 
 	UFUNCTION(BlueprintCallable)
-	void Disarm();
+	void AttachWeaponToBack();
 
 	UFUNCTION(BlueprintCallable)
-	void Arm();
+	void AttachWeaponToHand();
 
 	UFUNCTION(BlueprintCallable)
 	void FinishEquipping();
-	
+
+	UFUNCTION(BlueprintCallable)
+	void HitReactEnd();
 	
 private:
 

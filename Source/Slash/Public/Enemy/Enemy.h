@@ -25,7 +25,7 @@ public:
 	/** <AActor> */
 
 	/** <IHitInterface> */
-	virtual void GetHit_Implementation(const FVector& ImpactPoint) override;
+	virtual void GetHit_Implementation(const FVector& ImpactPoint, AActor* Hitter) override;
 	/** <IHitInterface> */
 
 
@@ -52,8 +52,12 @@ protected:
 	UPROPERTY(BlueprintReadOnly)
 	EEnemyState EnemyState = EEnemyState::EES_Patrolling;
 
+	UPROPERTY(BlueprintReadOnly, Category="Combat")
+	AActor* CombatTarget;
+
 private:
 	/** AI Behavior */
+	void InitializeEnemy();
 	void CheckPatrolTarget();
 	void CheckCombatTarget();
 	void PatrolTimerFinished();
@@ -78,6 +82,8 @@ private:
 
 	void    MoveToTarget(AActor* Target);
 	AActor* ChoosePatrolTarget();
+	void    SpawnDefaultWeapon();
+
 
 	UFUNCTION()
 	void PawnSeen(APawn* Pawn); // Callback for OnPawnSeen in UPawnSensingComponent
@@ -92,8 +98,6 @@ private:
 	UPROPERTY(EditAnywhere)
 	TSubclassOf<class AWeapon> WeaponClass;
 
-	UPROPERTY()
-	AActor* CombatTarget;
 
 	UPROPERTY(EditAnywhere)
 	double CombatRange = 500.f;

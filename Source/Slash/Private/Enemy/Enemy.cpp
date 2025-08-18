@@ -36,77 +36,6 @@ AEnemy::AEnemy()
 	bUseControllerRotationYaw = false;
 }
 
-// Called when the game starts or when spawned
-void AEnemy::BeginPlay()
-{
-	Super::BeginPlay();
-
-	if (Attributes && HealthBarWidget)
-	{
-		HealthBarWidget->SetHealthPercent(Attributes->GetHealthPercent());
-
-		HealthBarWidget->SetVisibility(false);
-	}
-
-	EnemyController = Cast<AAIController>(GetController());
-
-	// Start the timer to check when enemy can begin patrolling 
-	// (depends on NavMesh being ready)
-	GetWorldTimerManager().SetTimer(BeginPatrolTimer, this, &AEnemy::BeginPatrolling, 1.0f, true);
-
-	if (PawnSensing)
-	{
-		PawnSensing->OnSeePawn.AddDynamic(this, &AEnemy::PawnSeen);
-	}
-
-	UWorld* World = GetWorld();
-	if (World && WeaponClass)
-
-	{
-		AWeapon* DefaultWeapon = World->SpawnActor<AWeapon>(WeaponClass);
-		DefaultWeapon->Equip(GetMesh(), FName("RightHandSocket"), this, this);
-		EquippedWeapon = DefaultWeapon;
-	}
-}
-
-/**
- * CombatTarget와의 거리를 확인하여, CombatTarget이 범위를 벗어나면 CombatTarget을 nullptr로 설정하고 HealthBarWidget을 숨깁니다.
- */
-void AEnemy::CheckCombatTarget()
-{
-	if (IsOutsideCombatRadius())
-	{
-		ClearAttackTimer();
-		LoseInterest();
-		if (!IsEngaged())
-			StartPatrolling();
-	}
-	else if (IsOutsideAttackRadius() && !IsChasing())
-	{
-		ClearAttackTimer();
-		if (!IsEngaged())
-			ChaseTarget();
-	}
-	else if (CanAttack())
-	{
-		StartAttackTimer();
-	}
-}
-
-/**
- * 순찰 대상과의 거리를 확인하여 도달했을 때 새로운 순찰 지점을 선택하고,
- * 대기 시간을 랜덤으로 설정한 후 타이머를 시작합니다.
- */
-void AEnemy::CheckPatrolTarget()
-{
-	if (InTargetRange(CurrentPatrolTarget, PatrolRadius))
-	{
-		CurrentPatrolTarget = ChoosePatrolTarget();
-		const float WaitTime = FMath::RandRange(PatrolWaitMin, PatrolWaitMax);
-		GetWorldTimerManager().SetTimer(PatrolTimer, this, &AEnemy::PatrolTimerFinished, WaitTime);
-	}
-}
-
 // Called every frame
 void AEnemy::Tick(float DeltaTime)
 {
@@ -125,6 +54,63 @@ void AEnemy::Tick(float DeltaTime)
 	{
 		CheckPatrolTarget();
 	}
+
+	//UE_LOG(LogTemp, Log, TEXT("Enemy State: %s"), *UEnum::GetValueAsString(EnemyState));
+}
+
+float AEnemy::TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, AActor* DamageCauser)
+{
+	HandleDamage(DamageAmount);
+
+	CombatTarget = EventInstigator->GetPawn();
+	if (IsInsideAttackRadius())
+	{
+		EnemyState = EEnemyState::EES_Attacking;
+	}
+	else if (IsOutsideAttackRadius())
+	{
+		ChaseTarget();
+	}
+
+	return DamageAmount;
+}
+
+void AEnemy::Destroyed()
+{
+	if (EquippedWeapon)
+	{
+		EquippedWeapon->Destroy();
+		EquippedWeapon = nullptr;
+	}
+
+	Super::Destroyed();
+}
+
+void AEnemy::GetHit_Implementation(const FVector& ImpactPoint, AActor* Hitter)
+{
+	Super::GetHit_Implementation(ImpactPoint, Hitter);
+	if (!IsDead())
+		ShowHealthBar();
+	ClearPatrolTimer();
+	ClearAttackTimer();
+	SetWeaponCollisionEnabled(ECollisionEnabled::NoCollision);
+
+	StopAttackMontage();
+}
+
+
+// Called when the game starts or when spawned
+void AEnemy::BeginPlay()
+{
+	Super::BeginPlay();
+
+	if (PawnSensing)
+	{
+		PawnSensing->OnSeePawn.AddDynamic(this, &AEnemy::PawnSeen);
+	}
+
+	InitializeEnemy();
+	Tags.Add(FName("Enemy"));
 }
 
 void AEnemy::Die()
@@ -136,39 +122,7 @@ void AEnemy::Die()
 	DisableCapsule();
 	SetLifeSpan(DeathLifeSpan);
 	GetCharacterMovement()->bOrientRotationToMovement = false;
-}
-
-bool AEnemy::InTargetRange(AActor* Target, double Radius)
-{
-	if (Target == nullptr)
-		return false;
-
-	const double DistanceToTarget = (GetActorLocation() - Target->GetActorLocation()).Size();
-
-	return DistanceToTarget <= Radius;
-}
-
-
-/**
- * 감지된 Pawn이 "SlashCharacter" 태그를 가지고 있는 경우, 추적 상태로 전환하고 해당 Pawn을 목표로 설정하며 추적을 시작합니다.
- * 추적 상태 전환 시, 전역 타이머를 정리하고 이동 속도를 300.f로 설정합니다.
- *
- * @param SeenPawn 감지된 Pawn 객체
- */
-void AEnemy::PawnSeen(APawn* SeenPawn)
-{
-	const bool bShouldChaseTarget =
-		EnemyState != EEnemyState::EES_Dead &&
-		EnemyState != EEnemyState::EES_Chasing &&
-		EnemyState <= EEnemyState::EES_Chasing &&
-		SeenPawn->ActorHasTag(FName("SlashCharacter"));
-
-	if (bShouldChaseTarget)
-	{
-		CombatTarget = SeenPawn;
-		ClearPatrolTimer();
-		ChaseTarget();
-	}
+	SetWeaponCollisionEnabled(ECollisionEnabled::NoCollision);
 }
 
 void AEnemy::Attack()
@@ -210,71 +164,73 @@ void AEnemy::AttackEnd()
 	CheckCombatTarget();
 }
 
-void AEnemy::MoveToTarget(AActor* Target)
+bool AEnemy::InTargetRange(AActor* Target, double Radius)
 {
-	if (EnemyController == nullptr || Target == nullptr)
-		return;
+	if (Target == nullptr)
+		return false;
 
-	FAIMoveRequest MoveRequest;
-	MoveRequest.SetGoalActor(Target);
-	MoveRequest.SetAcceptanceRadius(40.f);
+	const double DistanceToTarget = (GetActorLocation() - Target->GetActorLocation()).Size();
 
-	EnemyController->MoveTo(MoveRequest);
+	return DistanceToTarget <= Radius;
 }
 
-AActor* AEnemy::ChoosePatrolTarget()
+void AEnemy::InitializeEnemy()
 {
-	TArray<AActor*> ValidTargets;
-	for (auto Target : PatrolTargets)
+	if (Attributes && HealthBarWidget)
 	{
-		if (Target != CurrentPatrolTarget)
-		{
-			ValidTargets.AddUnique(Target);
-		}
+		HealthBarWidget->SetHealthPercent(Attributes->GetHealthPercent());
+		HealthBarWidget->SetVisibility(false);
 	}
 
-	const int32 NumPatrolTargets = ValidTargets.Num();
-	if (NumPatrolTargets > 0)
-	{
-		const int32 TargetSelection = FMath::RandRange(0, NumPatrolTargets - 1);
-		return ValidTargets[TargetSelection];
-	}
+	EnemyController = Cast<AAIController>(GetController());
 
-	return nullptr;
+	// Start the timer to check when enemy can begin patrolling 
+	// (depends on NavMesh being ready)
+	GetWorldTimerManager().SetTimer(BeginPatrolTimer, this, &AEnemy::BeginPatrolling, 1.0f, true);
+	SpawnDefaultWeapon();
 }
 
-void AEnemy::BeginPatrolling()
+/**
+ * 순찰 대상과의 거리를 확인하여 도달했을 때 새로운 순찰 지점을 선택하고,
+ * 대기 시간을 랜덤으로 설정한 후 타이머를 시작합니다.
+ */
+void AEnemy::CheckPatrolTarget()
 {
-	// Set up patrolling AI Navigation
-	if (EnemyController == nullptr)
-		return;
-
-	CurrentPatrolTarget = ChoosePatrolTarget();
-
-	FAIMoveRequest MoveRequest;
-	MoveRequest.SetGoalActor(CurrentPatrolTarget);
-	MoveRequest.SetAcceptanceRadius(40.f);
-	FNavPathSharedPtr NavPath;
-	EnemyController->MoveTo(MoveRequest, &NavPath);
-	if (NavPath)
+	if (InTargetRange(CurrentPatrolTarget, PatrolRadius))
 	{
-		// stop timer now NavMesh is there			
-		GetWorldTimerManager().ClearTimer(BeginPatrolTimer);
+		CurrentPatrolTarget = ChoosePatrolTarget();
+		const float WaitTime = FMath::RandRange(PatrolWaitMin, PatrolWaitMax);
+		GetWorldTimerManager().SetTimer(PatrolTimer, this, &AEnemy::PatrolTimerFinished, WaitTime);
 	}
+}
 
+/**
+ * CombatTarget와의 거리를 확인하여, CombatTarget이 범위를 벗어나면 CombatTarget을 nullptr로 설정하고 HealthBarWidget을 숨깁니다.
+ */
+void AEnemy::CheckCombatTarget()
+{
+	if (IsOutsideCombatRadius())
+	{
+		ClearAttackTimer();
+		LoseInterest();
+		if (!IsEngaged())
+			StartPatrolling();
+	}
+	else if (IsOutsideAttackRadius() && !IsChasing())
+	{
+		ClearAttackTimer();
+		if (!IsEngaged())
+			ChaseTarget();
+	}
+	else if (CanAttack())
+	{
+		StartAttackTimer();
+	}
 }
 
 void AEnemy::PatrolTimerFinished()
 {
 	MoveToTarget(CurrentPatrolTarget);
-}
-
-void AEnemy::StartAttackTimer()
-{
-	EnemyState = EEnemyState::EES_Attacking;
-
-	const float AttackTime = FMath::RandRange(AttackMin, AttackMax);
-	GetWorldTimerManager().SetTimer(AttackTimer, this, &AEnemy::Attack, AttackTime);
 }
 
 void AEnemy::HideHealthBar()
@@ -353,45 +309,104 @@ void AEnemy::ClearPatrolTimer()
 	GetWorldTimerManager().ClearTimer(PatrolTimer);
 }
 
+void AEnemy::StartAttackTimer()
+{
+	EnemyState = EEnemyState::EES_Attacking;
+
+	const float AttackTime = FMath::RandRange(AttackMin, AttackMax);
+	GetWorldTimerManager().SetTimer(AttackTimer, this, &AEnemy::Attack, AttackTime);
+}
+
 void AEnemy::ClearAttackTimer()
 {
 	GetWorldTimerManager().ClearTimer(AttackTimer);
 }
 
-void AEnemy::GetHit_Implementation(const FVector& ImpactPoint)
+void AEnemy::MoveToTarget(AActor* Target)
 {
-	ShowHealthBar();
+	if (EnemyController == nullptr || Target == nullptr)
+		return;
 
-	if (IsAlive())
-	{
-		DirectionalHitReact(ImpactPoint);
-	}
-	else
-	{
-		Die();
-	}
+	FAIMoveRequest MoveRequest;
+	MoveRequest.SetGoalActor(Target);
+	MoveRequest.SetAcceptanceRadius(40.f);
 
-	PlayHitSound(ImpactPoint);
-	SpawnHitParticles(ImpactPoint);
+	EnemyController->MoveTo(MoveRequest);
+
+	// move to target UE_LOG
+	UE_LOG(LogTemp, Log, TEXT("AEnemy::MoveToTarget - Moving to target: %s"), *Target->GetName());
 }
 
-float AEnemy::TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, AActor* DamageCauser)
+AActor* AEnemy::ChoosePatrolTarget()
 {
-	HandleDamage(DamageAmount);
-
-	CombatTarget = EventInstigator->GetPawn();
-	ChaseTarget();
-
-	return DamageAmount;
-}
-
-void AEnemy::Destroyed()
-{
-	if (EquippedWeapon)
+	TArray<AActor*> ValidTargets;
+	for (auto Target : PatrolTargets)
 	{
-		EquippedWeapon->Destroy();
-		EquippedWeapon = nullptr;
+		if (Target != CurrentPatrolTarget)
+		{
+			ValidTargets.AddUnique(Target);
+		}
 	}
 
-	Super::Destroyed();
+	const int32 NumPatrolTargets = ValidTargets.Num();
+	if (NumPatrolTargets > 0)
+	{
+		const int32 TargetSelection = FMath::RandRange(0, NumPatrolTargets - 1);
+		return ValidTargets[TargetSelection];
+	}
+
+	return nullptr;
+}
+
+void AEnemy::SpawnDefaultWeapon()
+{
+	UWorld* World = GetWorld();
+	if (World && WeaponClass)
+	{
+		AWeapon* DefaultWeapon = World->SpawnActor<AWeapon>(WeaponClass);
+		DefaultWeapon->Equip(GetMesh(), FName("RightHandSocket"), this, this);
+		EquippedWeapon = DefaultWeapon;
+	}
+}
+
+/**
+ * 감지된 Pawn이 "SlashCharacter" 태그를 가지고 있는 경우, 추적 상태로 전환하고 해당 Pawn을 목표로 설정하며 추적을 시작합니다.
+ * 추적 상태 전환 시, 전역 타이머를 정리하고 이동 속도를 300.f로 설정합니다.
+ *
+ * @param SeenPawn 감지된 Pawn 객체
+ */
+void AEnemy::PawnSeen(APawn* SeenPawn)
+{
+	const bool bShouldChaseTarget =
+		EnemyState != EEnemyState::EES_Dead &&
+		EnemyState != EEnemyState::EES_Chasing &&
+		EnemyState <= EEnemyState::EES_Chasing &&
+		SeenPawn->ActorHasTag(FName("EngageableTarget"));
+
+	if (bShouldChaseTarget)
+	{
+		CombatTarget = SeenPawn;
+		ClearPatrolTimer();
+		ChaseTarget();
+	}
+}
+
+void AEnemy::BeginPatrolling()
+{
+	// Set up patrolling AI Navigation
+	if (EnemyController == nullptr)
+		return;
+
+	CurrentPatrolTarget = ChoosePatrolTarget();
+
+	FAIMoveRequest MoveRequest;
+	MoveRequest.SetGoalActor(CurrentPatrolTarget);
+	MoveRequest.SetAcceptanceRadius(40.f);
+	FNavPathSharedPtr NavPath;
+	EnemyController->MoveTo(MoveRequest, &NavPath);
+	if (NavPath)
+	{
+		// stop timer now NavMesh is there			
+		GetWorldTimerManager().ClearTimer(BeginPatrolTimer);
+	}
 }
