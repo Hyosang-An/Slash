@@ -67,15 +67,13 @@ protected:
 	void EKeyPressed();
 	virtual void Attack() override;
 
-	/**
-	 * Play montage function
-	 */
+	// Combat
 	virtual void AttackEnd() override;
 	virtual bool CanAttack() override;
-
-	void PlayEquipMontage(const FName& SectionName);
 	bool CanDisarm();
 	bool CanArm();
+	void PlayEquipMontage(const FName& SectionName);
+
 
 	UFUNCTION(BlueprintCallable)
 	void Disarm();
@@ -88,11 +86,9 @@ protected:
 	
 	
 private:
-	ECharacterState CharacterState = ECharacterState::ECS_Unequipped;
 
-	UPROPERTY(BlueprintReadWrite, meta =(AllowPrivateAccess = "true"))
-	EActionState ActionState = EActionState::EAS_Unoccupied;
 
+	// Character Components
 	UPROPERTY(VisibleAnywhere)
 	USpringArmComponent* CameraBoom;
 
@@ -110,6 +106,11 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, Category = Montages)
 	UAnimMontage* EquipMontage;
+
+	ECharacterState CharacterState = ECharacterState::ECS_Unequipped;
+
+	UPROPERTY(BlueprintReadWrite, meta =(AllowPrivateAccess = "true"))
+	EActionState ActionState = EActionState::EAS_Unoccupied;
 	
 public:
 	FORCEINLINE void SetOverlappingItem(AItem* Item) { OverlappingItem = Item; }

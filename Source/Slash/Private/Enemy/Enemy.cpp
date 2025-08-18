@@ -4,7 +4,6 @@
 #include "Enemy/Enemy.h"
 
 #include "Components/AttributeComponent.h"
-#include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "HUD/HealthBarComponent.h"
 #include "Items/Weapons/Weapon.h"
@@ -23,7 +22,6 @@ AEnemy::AEnemy()
 	GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Visibility, ECollisionResponse::ECR_Block);
 	GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
 	GetMesh()->SetGenerateOverlapEvents(true);
-	GetCapsuleComponent()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
 
 	HealthBarWidget = CreateDefaultSubobject<UHealthBarComponent>(TEXT("HealthBarWidget"));
 	HealthBarWidget->SetupAttachment(GetRootComponent());
@@ -104,7 +102,7 @@ void AEnemy::CheckPatrolTarget()
 	if (InTargetRange(CurrentPatrolTarget, PatrolRadius))
 	{
 		CurrentPatrolTarget = ChoosePatrolTarget();
-		const float WaitTime = FMath::RandRange(WaitMin, WaitMax);
+		const float WaitTime = FMath::RandRange(PatrolWaitMin, PatrolWaitMax);
 		GetWorldTimerManager().SetTimer(PatrolTimer, this, &AEnemy::PatrolTimerFinished, WaitTime);
 	}
 }
@@ -175,13 +173,13 @@ void AEnemy::PawnSeen(APawn* SeenPawn)
 
 void AEnemy::Attack()
 {
-	Super::Attack();
+	EnemyState = EEnemyState::EES_Engaged;
 	PlayAttackMontage();
 }
 
 bool AEnemy::CanAttack()
 {
-	return IsInsideAttackRadius() && !IsAttacking() && !IsDead();
+	return IsInsideAttackRadius() && !IsAttacking() && !IsEngaged() && !IsDead();
 }
 
 void AEnemy::HandleDamage(float DamageAmount)
@@ -204,6 +202,12 @@ int32 AEnemy::PlayDeathMontage()
 	}
 
 	return Selection;
+}
+
+void AEnemy::AttackEnd()
+{
+	EnemyState = EEnemyState::EES_NoState;
+	CheckCombatTarget();
 }
 
 void AEnemy::MoveToTarget(AActor* Target)
