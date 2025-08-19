@@ -7,9 +7,12 @@
 #include "EnhancedInputSubsystems.h"
 #include "GroomComponent.h"
 #include "Camera/CameraComponent.h"
+#include "Components/AttributeComponent.h"
 #include "Components/BoxComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "HUD/SlashHUD.h"
+#include "HUD/SlashOverlay.h"
 #include "Items/Weapons/Weapon.h"
 
 // Sets default values
@@ -67,6 +70,8 @@ void ASlashCharacter::BeginPlay()
 	}
 
 	Tags.Add(FName("EngageableTarget"));
+
+	InitializeSlashOverlay();
 }
 
 void ASlashCharacter::Move(const FInputActionValue& Value)
@@ -189,6 +194,14 @@ void ASlashCharacter::PlayEquipMontage(const FName& SectionName)
 	}
 }
 
+void ASlashCharacter::Die()
+{
+	Super::Die();
+
+	ActionState = EActionState::EAS_Dead;
+	DisableMeshCollision();
+}
+
 void ASlashCharacter::AttachWeaponToBack()
 {
 	if (EquippedWeapon)
@@ -215,6 +228,37 @@ void ASlashCharacter::HitReactEnd()
 	ActionState = EActionState::EAS_Unoccupied;
 }
 
+bool ASlashCharacter::IsUnoccupied()
+{
+	return ActionState == EActionState::EAS_Unoccupied;
+}
+
+void ASlashCharacter::InitializeSlashOverlay()
+{
+	if (APlayerController* PlayerController = Cast<APlayerController>(GetController()))
+	{
+		if (ASlashHUD* SlashHUD = Cast<ASlashHUD>(PlayerController->GetHUD()))
+		{
+			SlashOverlay = SlashHUD->GetSlashOverlay();
+			if (SlashOverlay && Attributes)
+			{
+				SlashOverlay->SetHealthBarPercent(Attributes->GetHealthPercent());
+				SlashOverlay->SetStaminaBarPercent(1.f);
+				SlashOverlay->SetGold(0);
+				SlashOverlay->SetSouls(0);
+			}
+		}
+	}
+}
+
+void ASlashCharacter::SetHUDHealth()
+{
+	if (SlashOverlay && Attributes)
+	{
+		SlashOverlay->SetHealthBarPercent(Attributes->GetHealthPercent());
+	}
+}
+
 // Called to bind functionality to input
 void ASlashCharacter::SetupPlayerInputComponent(
 	UInputComponent* PlayerInputComponent)
@@ -225,16 +269,23 @@ void ASlashCharacter::SetupPlayerInputComponent(
 	{
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ASlashCharacter::Move);
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &ASlashCharacter::Look);
-		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Triggered, this, &ACharacter::Jump);
+		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Triggered, this, &ASlashCharacter::Jump);
 		EnhancedInputComponent->BindAction(EKeyAction, ETriggerEvent::Triggered, this, &ASlashCharacter::EKeyPressed);
 		EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Triggered, this, &ASlashCharacter::Attack);
 	}
 }
 
+void ASlashCharacter::Jump()
+{
+	if (IsUnoccupied())
+		Super::Jump();
+}
+
 float ASlashCharacter::TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, AActor* DamageCauser)
 {
 	HandleDamage(DamageAmount);
-	return DamageAmount;	
+	SetHUDHealth();
+	return DamageAmount;
 }
 
 void ASlashCharacter::GetHit_Implementation(const FVector& ImpactPoint, AActor* Hitter)
@@ -242,5 +293,20 @@ void ASlashCharacter::GetHit_Implementation(const FVector& ImpactPoint, AActor* 
 	Super::GetHit_Implementation(ImpactPoint, Hitter);
 
 	SetWeaponCollisionEnabled(ECollisionEnabled::NoCollision);
-	ActionState = EActionState::EAS_HitReaction;
+
+	if (Attributes && Attributes->GetHealthPercent() > 0.f)
+	{
+		ActionState = EActionState::EAS_HitReaction;
+	}
+}
+
+void ASlashCharacter::SetOverlappingItem(AItem* Item)
+{
+	OverlappingItem = Item;
+}
+
+void ASlashCharacter::AddSouls(ASoul* Soul)
+{
+	UE_LOG(LogTemp, Warning, TEXT("ASlashCharacter::AddSouls"));
+	
 }

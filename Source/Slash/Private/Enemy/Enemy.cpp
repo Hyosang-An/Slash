@@ -115,8 +115,9 @@ void AEnemy::BeginPlay()
 
 void AEnemy::Die()
 {
+	Super::Die();
+	
 	EnemyState = EEnemyState::EES_Dead;
-	PlayDeathMontage();
 	ClearAttackTimer();
 	HideHealthBar();
 	DisableCapsule();
@@ -127,6 +128,10 @@ void AEnemy::Die()
 
 void AEnemy::Attack()
 {
+	Super::Attack();
+	if (CombatTarget == nullptr)
+		return;
+	
 	EnemyState = EEnemyState::EES_Engaged;
 	PlayAttackMontage();
 }
@@ -332,9 +337,6 @@ void AEnemy::MoveToTarget(AActor* Target)
 	MoveRequest.SetAcceptanceRadius(40.f);
 
 	EnemyController->MoveTo(MoveRequest);
-
-	// move to target UE_LOG
-	UE_LOG(LogTemp, Log, TEXT("AEnemy::MoveToTarget - Moving to target: %s"), *Target->GetName());
 }
 
 AActor* AEnemy::ChoosePatrolTarget()
@@ -387,7 +389,8 @@ void AEnemy::PawnSeen(APawn* SeenPawn)
 	{
 		CombatTarget = SeenPawn;
 		ClearPatrolTimer();
-		ChaseTarget();
+		if (!IsOutsideCombatRadius())
+			ChaseTarget();
 	}
 }
 
