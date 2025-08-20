@@ -27,14 +27,17 @@ class SLASH_API ASlashCharacter : public ABaseCharacter, public IPickupInterface
 public:
 	// Sets default values for this character's properties
 	ASlashCharacter();
+	virtual void Tick(float DeltaTime) override;
 
 	// Called to bind functionality to input
-	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
-	virtual void Jump() override;
+	virtual void  SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+	virtual void  Jump() override;
 	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, AActor* DamageCauser) override;
-	virtual void GetHit_Implementation(const FVector& ImpactPoint, AActor* Hitter) override;
-	virtual void SetOverlappingItem(AItem* Item) override;
-	virtual void AddSouls(ASoul* Soul) override;
+	virtual void  GetHit_Implementation(const FVector& ImpactPoint, AActor* Hitter) override;
+	virtual void  SetOverlappingItem(AItem* Item) override;
+	virtual void  AddSouls(ASoul* Soul) override;
+	virtual void  AddGold(ATreasure* Treasure) override;
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -64,21 +67,24 @@ protected:
 	/**
 	*  Callbacks for input actions
 	*/
-	void Move(const FInputActionValue& Value);
-	void Look(const FInputActionValue& Value);
-	void EKeyPressed();
+	void         Move(const FInputActionValue& Value);
+	void         Look(const FInputActionValue& Value);
+	void         EKeyPressed();
 	virtual void Attack() override;
+	void         Dodge();
 
 	// Combat
-	void EquipWeapon(AWeapon* Weapon);
+	void         EquipWeapon(AWeapon* Weapon);
 	virtual void AttackEnd() override;
+	virtual void DodgeEnd() override;
 	virtual bool CanAttack() override;
-	bool CanDisArm();
-	bool CanArm();
-	void DisArm();
-	void Arm();
-	void PlayEquipMontage(const FName& SectionName);
+	bool         CanDisArm();
+	bool         CanArm();
+	void         DisArm();
+	void         Arm();
+	void         PlayEquipMontage(const FName& SectionName);
 	virtual void Die() override;
+	bool         HasEnoughStamina(float StaminaCost);
 
 
 	UFUNCTION(BlueprintCallable)
@@ -92,7 +98,7 @@ protected:
 
 	UFUNCTION(BlueprintCallable)
 	void HitReactEnd();
-	
+
 private:
 	bool IsUnoccupied();
 	void InitializeSlashOverlay();
@@ -124,8 +130,8 @@ private:
 
 	UPROPERTY()
 	USlashOverlay* SlashOverlay;
-	
+
 public:
 	FORCEINLINE ECharacterState GetCharacterState() const { return CharacterState; }
-	FORCEINLINE EActionState GetActionState() const { return ActionState; }
+	FORCEINLINE EActionState    GetActionState() const { return ActionState; }
 };

@@ -7,6 +7,7 @@
 #include "Characters/CharacterTypes.h"
 #include "Enemy.generated.h"
 
+class ASoul;
 class UPawnSensingComponent;
 class UHealthBarComponent;
 
@@ -44,6 +45,7 @@ protected:
 	// </ABaseCharacter>
 
 	bool InTargetRange(AActor* Target, double Radius);
+	void SpawnSoul();
 
 
 	UPROPERTY(BlueprintReadOnly)
@@ -140,6 +142,9 @@ private:
 
 	UPROPERTY(EditAnywhere, Category=Combat)
 	float DeathLifeSpan = 8.f;
+
+	UPROPERTY(EditAnywhere, Category=Combat)
+	TSubclassOf<ASoul> SoulClass;
 
 
 	FTimerHandle BeginPatrolTimer;

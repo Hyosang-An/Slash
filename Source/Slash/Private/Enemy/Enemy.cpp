@@ -6,6 +6,7 @@
 #include "Components/AttributeComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "HUD/HealthBarComponent.h"
+#include "Items/Soul.h"
 #include "Items/Weapons/Weapon.h"
 #include "Navigation/PathFollowingComponent.h"
 #include "Perception/PawnSensingComponent.h"
@@ -115,6 +116,9 @@ void AEnemy::BeginPlay()
 
 void AEnemy::Die()
 {
+	if (EnemyState == EEnemyState::EES_Dead)
+		return; // Already dead, no need to process further
+	
 	Super::Die();
 	
 	EnemyState = EEnemyState::EES_Dead;
@@ -124,6 +128,10 @@ void AEnemy::Die()
 	SetLifeSpan(DeathLifeSpan);
 	GetCharacterMovement()->bOrientRotationToMovement = false;
 	SetWeaponCollisionEnabled(ECollisionEnabled::NoCollision);
+
+	// spawn timer
+	FTimerHandle SoulSpawnTimerHandle;
+	GetWorldTimerManager().SetTimer(SoulSpawnTimerHandle, this, &AEnemy::SpawnSoul, 2, false);
 }
 
 void AEnemy::Attack()
@@ -177,6 +185,18 @@ bool AEnemy::InTargetRange(AActor* Target, double Radius)
 	const double DistanceToTarget = (GetActorLocation() - Target->GetActorLocation()).Size();
 
 	return DistanceToTarget <= Radius;
+}
+
+void AEnemy::SpawnSoul()
+{
+	if (!SoulClass)
+		return;
+	if (UWorld* World = GetWorld())
+	{
+		const FVector SpawnLocation = GetActorLocation();
+		if (ASoul* SpawnedSoul = World->SpawnActor<ASoul>(SoulClass, SpawnLocation, GetActorRotation()))
+			SpawnedSoul->SetSouls(Attributes->GetSouls());
+	}
 }
 
 void AEnemy::InitializeEnemy()

@@ -13,13 +13,15 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "HUD/SlashHUD.h"
 #include "HUD/SlashOverlay.h"
+#include "Items/Soul.h"
+#include "Items/Treasure.h"
 #include "Items/Weapons/Weapon.h"
 
 // Sets default values
 ASlashCharacter::ASlashCharacter()
 {
 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	PrimaryActorTick.bCanEverTick = false;
+	PrimaryActorTick.bCanEverTick = true;
 
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = false;
@@ -50,6 +52,17 @@ ASlashCharacter::ASlashCharacter()
 	Eyebrows = CreateDefaultSubobject<UGroomComponent>(TEXT("Eyebrows"));
 	Eyebrows->SetupAttachment(GetMesh());
 	Eyebrows->AttachmentName = FString("head");
+}
+
+void ASlashCharacter::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	if (Attributes && SlashOverlay)
+	{
+		Attributes->RegenStamina(DeltaTime);
+		SlashOverlay->SetStaminaBarPercent(Attributes->GetStaminaPercent());
+	}
 }
 
 // Called when the game starts or when spawned
@@ -143,6 +156,35 @@ void ASlashCharacter::Attack()
 	}
 }
 
+bool ASlashCharacter::HasEnoughStamina(float StaminaCost)
+{
+	return Attributes && Attributes->GetStamina() >= StaminaCost;
+}
+
+void ASlashCharacter::Dodge()
+{
+	if (!IsUnoccupied() || Attributes == nullptr || !HasEnoughStamina(Attributes->GetDodgeCost()))
+		return;
+
+	// 마지막 방향 입력 방향으로 캐릭터를 회전시킴
+	FVector LastInputVector = GetCharacterMovement()->GetLastInputVector();
+	if (LastInputVector.IsNearlyZero())
+	{
+		LastInputVector = GetActorForwardVector();
+	}
+	FRotator DodgeRotation = FRotator(0, LastInputVector.Rotation().Yaw, 0);
+	SetActorRotation(DodgeRotation);
+
+	PlayDodgeMontage();
+	ActionState = EActionState::EAS_Dodge;
+
+	Attributes->UseStamina(Attributes->GetDodgeCost());
+	if (SlashOverlay)
+	{
+		SlashOverlay->SetStaminaBarPercent(Attributes->GetStaminaPercent());
+	}
+}
+
 void ASlashCharacter::EquipWeapon(AWeapon* Weapon)
 {
 	Weapon->Equip(GetMesh(), FName("RightHandSocket"), this, this);
@@ -153,6 +195,13 @@ void ASlashCharacter::EquipWeapon(AWeapon* Weapon)
 
 void ASlashCharacter::AttackEnd()
 {
+	ActionState = EActionState::EAS_Unoccupied;
+}
+
+void ASlashCharacter::DodgeEnd()
+{
+	Super::DodgeEnd();
+
 	ActionState = EActionState::EAS_Unoccupied;
 }
 
@@ -243,7 +292,7 @@ void ASlashCharacter::InitializeSlashOverlay()
 			if (SlashOverlay && Attributes)
 			{
 				SlashOverlay->SetHealthBarPercent(Attributes->GetHealthPercent());
-				SlashOverlay->SetStaminaBarPercent(1.f);
+				SlashOverlay->SetStaminaBarPercent(Attributes->GetStaminaPercent());
 				SlashOverlay->SetGold(0);
 				SlashOverlay->SetSouls(0);
 			}
@@ -272,6 +321,7 @@ void ASlashCharacter::SetupPlayerInputComponent(
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Triggered, this, &ASlashCharacter::Jump);
 		EnhancedInputComponent->BindAction(EKeyAction, ETriggerEvent::Triggered, this, &ASlashCharacter::EKeyPressed);
 		EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Triggered, this, &ASlashCharacter::Attack);
+		EnhancedInputComponent->BindAction(DodgeAction, ETriggerEvent::Triggered, this, &ASlashCharacter::Dodge);
 	}
 }
 
@@ -307,6 +357,19 @@ void ASlashCharacter::SetOverlappingItem(AItem* Item)
 
 void ASlashCharacter::AddSouls(ASoul* Soul)
 {
-	UE_LOG(LogTemp, Warning, TEXT("ASlashCharacter::AddSouls"));
-	
+	if (Attributes && SlashOverlay)
+	{
+		Attributes->AddSouls(Soul->GetSouls());
+		SlashOverlay->SetSouls(Attributes->GetSouls());
+	}
+
+}
+
+void ASlashCharacter::AddGold(ATreasure* Treasure)
+{
+	if (Attributes && SlashOverlay)
+	{
+		Attributes->AddGold(Treasure->GetGold());
+		SlashOverlay->SetGold(Attributes->GetGold());
+	}
 }

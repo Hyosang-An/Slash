@@ -34,12 +34,13 @@ protected:
 	void         DisableCapsule();
 	virtual bool CanAttack();
 	bool         IsAlive();
-	void DisableMeshCollision();
+	void         DisableMeshCollision();
 
 	// Montages
 	void          PlayHitReactMontage(const FName& SectionName);
 	virtual int32 PlayAttackMontage();
 	virtual int32 PlayDeathMontage();
+	virtual void  PlayDodgeMontage();
 	void          StopAttackMontage();
 
 	UFUNCTION(BlueprintCallable)
@@ -47,9 +48,12 @@ protected:
 
 	UFUNCTION(BlueprintCallable)
 	FVector GetRotationWarpTarget();
-	
+
 	UFUNCTION(BlueprintCallable)
 	virtual void AttackEnd();
+
+	UFUNCTION(BlueprintCallable)
+	virtual void DodgeEnd();
 
 	UFUNCTION(BlueprintCallable)
 	void SetWeaponCollisionEnabled(ECollisionEnabled::Type CollisionEnabled);
@@ -89,6 +93,9 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = Combat)
 	UAnimMontage* DeathMontage;
+
+	UPROPERTY(EditAnywhere, Category = Combat)
+	UAnimMontage* DodgeMontage;
 
 	UPROPERTY(EditAnywhere, Category= Combat)
 	TArray<FName> AttackMontageSections;
