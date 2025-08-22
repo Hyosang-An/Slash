@@ -64,16 +64,47 @@ void AWeapon::DeactivateEmbers()
 	}
 }
 
-void AWeapon::Equip(USceneComponent* InParent, FName InSocketName, AActor* NewOwner, APawn* NewInstigator)
+AWeapon* AWeapon::Equip(USceneComponent* InParent, FName InSocketName, AActor* NewOwner, APawn* NewInstigator)
 {
-	ItemState = EItemState::EIS_Equipped;
-	SetOwner(NewOwner);
-	SetInstigator(NewInstigator);
-	AttachMeshToSocket(InParent, InSocketName);
+	// ItemState = EItemState::EIS_Equipped;
+	// SetOwner(NewOwner);
+	// SetInstigator(NewInstigator);
+	// AttachMeshToSocket(InParent, InSocketName);
+	//
+	// SetIsSpatiallyLoaded(false);
+	//
+	// PlayEquipSound();
+	// DisableSphereCollision();
+	// DeactivateEmbers();
 
-	PlayEquipSound();
-	DisableSphereCollision();
-	DeactivateEmbers();
+	// Spawn a new runtime instance of the same class
+	FActorSpawnParameters Params;
+	Params.Owner = NewOwner;
+	Params.Instigator = NewInstigator;
+	Params.SpawnCollisionHandlingOverride =
+		ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+	AWeapon* NewWeapon = GetWorld()->SpawnActor<AWeapon>(
+		GetClass(), GetActorTransform(), Params);
+
+	if (NewWeapon)
+	{
+		// Attach and initialize
+		NewWeapon->ItemState = EItemState::EIS_Equipped;
+		NewWeapon->AttachMeshToSocket(InParent, InSocketName);
+
+		// Optionally copy mesh/visual state if needed
+		// NewWeapon->WeaponMesh->SetSkeletalMesh(WeaponMesh->SkeletalMesh);
+
+		NewWeapon->PlayEquipSound();
+		NewWeapon->DisableSphereCollision();
+		NewWeapon->DeactivateEmbers();
+	}
+
+	// Destroy the original placed actor (still tied to World Partition)
+	Destroy();
+
+	return NewWeapon;
 }
 
 void AWeapon::ExecuteGetHit(FHitResult& BoxHit)

@@ -1,0 +1,7 @@
+<map id="ABreakableActor" name="ABreakableActor">
+<area shape="rect" id="Node000001" title=" " alt="" coords="5,123,171,299"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="18,5,68,75"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="59,89,68,122,62,124,53,90"/>
+<area shape="rect" id="Node000003" href="$class_i_hit_interface.html" title=" " alt="" coords="92,5,175,75"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="123,90,114,124,109,122,118,89"/>
+</map>

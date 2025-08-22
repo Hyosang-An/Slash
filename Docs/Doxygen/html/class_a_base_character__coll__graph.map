@@ -1,0 +1,7 @@
+<map id="ABaseCharacter" name="ABaseCharacter">
+<area shape="rect" id="Node000001" title=" " alt="" coords="5,123,206,533"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="16,5,92,75"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="65,89,71,122,66,123,60,90"/>
+<area shape="rect" id="Node000003" href="$class_i_hit_interface.html" title=" " alt="" coords="116,5,199,75"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="152,90,146,123,140,122,146,89"/>
+</map>

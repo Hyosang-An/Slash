@@ -1,0 +1,25 @@
+<map id="Graphical Class Hierarchy" name="Graphical Class Hierarchy">
+<area shape="rect" id="Node000000" title=" " alt="" coords="21,56,83,83"/>
+<area shape="rect" id="Node000001" href="$class_a_breakable_actor.html" title=" " alt="" coords="147,107,266,133"/>
+<area shape="poly" id="edge1_Node000000_Node000001" title=" " alt="" coords="99,82,164,104,163,109,97,87"/>
+<area shape="rect" id="Node000008" href="$class_a_item.html" title=" " alt="" coords="178,56,234,83"/>
+<area shape="poly" id="edge2_Node000000_Node000008" title=" " alt="" coords="98,67,178,67,178,72,98,72"/>
+<area shape="rect" id="Node000009" href="$class_a_soul.html" title=" " alt="" coords="346,5,402,32"/>
+<area shape="poly" id="edge3_Node000008_Node000009" title=" " alt="" coords="248,54,345,24,346,30,250,59"/>
+<area shape="rect" id="Node000010" href="$class_a_treasure.html" title=" " alt="" coords="334,56,414,83"/>
+<area shape="poly" id="edge4_Node000008_Node000010" title=" " alt="" coords="250,67,334,67,334,72,250,72"/>
+<area shape="rect" id="Node000011" href="$class_a_weapon.html" title=" " alt="" coords="336,107,412,133"/>
+<area shape="poly" id="edge5_Node000008_Node000011" title=" " alt="" coords="250,80,336,106,335,111,249,85"/>
+<area shape="rect" id="Node000007" title=" " alt="" coords="8,157,96,184"/>
+<area shape="rect" id="Node000003" href="$class_a_base_character.html" title=" " alt="" coords="148,157,265,184"/>
+<area shape="poly" id="edge6_Node000007_Node000003" title=" " alt="" coords="111,168,147,168,147,173,111,173"/>
+<area shape="rect" id="Node000004" href="$class_a_enemy.html" title=" " alt="" coords="338,157,410,184"/>
+<area shape="poly" id="edge7_Node000003_Node000004" title=" " alt="" coords="280,168,338,168,338,173,280,173"/>
+<area shape="rect" id="Node000005" href="$class_a_slash_character.html" title=" " alt="" coords="314,208,434,235"/>
+<area shape="poly" id="edge8_Node000003_Node000005" title=" " alt="" coords="269,187,328,205,327,210,267,192"/>
+<area shape="rect" id="Node000002" href="$class_i_hit_interface.html" title=" " alt="" coords="5,107,99,133"/>
+<area shape="poly" id="edge10_Node000002_Node000001" title=" " alt="" coords="114,117,146,117,146,123,114,123"/>
+<area shape="poly" id="edge9_Node000002_Node000003" title=" " alt="" coords="110,136,164,154,162,159,109,141"/>
+<area shape="rect" id="Node000006" href="$class_i_pickup_interface.html" title=" " alt="" coords="148,208,264,235"/>
+<area shape="poly" id="edge11_Node000006_Node000005" title=" " alt="" coords="280,219,313,219,313,224,280,224"/>
+</map>

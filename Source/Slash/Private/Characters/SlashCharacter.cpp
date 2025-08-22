@@ -131,6 +131,11 @@ void ASlashCharacter::EKeyPressed()
 {
 	if (AWeapon* OverlappingWeapon = Cast<AWeapon>(OverlappingItem))
 	{
+		if (EquippedWeapon)
+		{
+			EquippedWeapon->Destroy();
+		}
+
 		EquipWeapon(OverlappingWeapon);
 	}
 	else
@@ -187,10 +192,10 @@ void ASlashCharacter::Dodge()
 
 void ASlashCharacter::EquipWeapon(AWeapon* Weapon)
 {
-	Weapon->Equip(GetMesh(), FName("RightHandSocket"), this, this);
+	AWeapon* NewWeapon = Weapon->Equip(GetMesh(), FName("RightHandSocket"), this, this);
 	CharacterState = ECharacterState::ECS_EquippedOneHandedWeapon;
 	OverlappingItem = nullptr;
-	EquippedWeapon = Weapon;
+	EquippedWeapon = NewWeapon;
 }
 
 void ASlashCharacter::AttackEnd()
@@ -243,9 +248,9 @@ void ASlashCharacter::PlayEquipMontage(const FName& SectionName)
 	}
 }
 
-void ASlashCharacter::Die()
+void ASlashCharacter::Die_Implementation()
 {
-	Super::Die();
+	Super::Die_Implementation();
 
 	ActionState = EActionState::EAS_Dead;
 	DisableMeshCollision();

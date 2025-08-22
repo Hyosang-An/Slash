@@ -1,0 +1,9 @@
+<map id="Source/Slash/Public/Interfaces/HitInterface.h" name="Source/Slash/Public/Interfaces/HitInterface.h">
+<area shape="rect" id="Node000001" title=" " alt="" coords="119,5,285,48"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="5,96,111,123"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="166,51,95,90,93,86,164,46"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="134,96,270,123"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="205,49,205,80,199,80,199,49"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="293,96,455,123"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="247,46,335,87,332,92,245,51"/>
+</map>

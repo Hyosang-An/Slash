@@ -1,0 +1,17 @@
+<map id="AEnemy" name="AEnemy">
+<area shape="rect" id="Node000001" title=" " alt="" coords="127,732,302,1484"/>
+<area shape="rect" id="Node000002" href="$class_a_base_character.html" title=" " alt="" coords="16,257,218,668"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="153,682,160,732,155,733,147,683"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="5,124,82,193"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="58,207,70,257,65,258,53,208"/>
+<area shape="rect" id="Node000004" href="$class_i_hit_interface.html" title=" " alt="" coords="106,124,189,193"/>
+<area shape="poly" id="edge3_Node000002_Node000004" title=" " alt="" coords="145,208,140,258,135,257,140,207"/>
+<area shape="rect" id="Node000005" href="$class_u_health_bar_component.html" title=" " alt="" coords="242,428,387,497"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="312,498,278,716,273,715,307,497"/>
+<area shape="rect" id="Node000006" title=" " alt="" coords="225,124,353,193"/>
+<area shape="poly" id="edge5_Node000005_Node000006" title=" " alt="" coords="296,208,314,428,309,428,290,208"/>
+<area shape="rect" id="Node000007" href="$class_u_health_bar.html" title=" " alt="" coords="377,124,459,193"/>
+<area shape="poly" id="edge6_Node000005_Node000007" title=" " alt="" coords="410,194,334,413,329,411,404,192"/>
+<area shape="rect" id="Node000008" title=" " alt="" coords="374,5,463,75"/>
+<area shape="poly" id="edge7_Node000007_Node000008" title=" " alt="" coords="421,89,421,124,416,124,416,89"/>
+</map>

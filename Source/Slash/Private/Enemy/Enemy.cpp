@@ -97,6 +97,11 @@ void AEnemy::GetHit_Implementation(const FVector& ImpactPoint, AActor* Hitter)
 	SetWeaponCollisionEnabled(ECollisionEnabled::NoCollision);
 
 	StopAttackMontage();
+
+	if (IsInsideAttackRadius() && !IsDead())
+	{
+		StartAttackTimer();
+	}
 }
 
 
@@ -114,12 +119,12 @@ void AEnemy::BeginPlay()
 	Tags.Add(FName("Enemy"));
 }
 
-void AEnemy::Die()
+void AEnemy::Die_Implementation()
 {
 	if (EnemyState == EEnemyState::EES_Dead)
 		return; // Already dead, no need to process further
 	
-	Super::Die();
+	Super::Die_Implementation();
 	
 	EnemyState = EEnemyState::EES_Dead;
 	ClearAttackTimer();
@@ -193,14 +198,19 @@ void AEnemy::SpawnSoul()
 		return;
 	if (UWorld* World = GetWorld())
 	{
-		const FVector SpawnLocation = GetActorLocation();
+		const FVector SpawnLocation = GetActorLocation() + FVector(0, 0, 125.f);
 		if (ASoul* SpawnedSoul = World->SpawnActor<ASoul>(SoulClass, SpawnLocation, GetActorRotation()))
+		{
 			SpawnedSoul->SetSouls(Attributes->GetSouls());
+			SpawnedSoul->SetOwner(this);
+		}
 	}
 }
 
 void AEnemy::InitializeEnemy()
 {
+	GetCharacterMovement()->MaxWalkSpeed = PatrollingSpeed;
+	
 	if (Attributes && HealthBarWidget)
 	{
 		HealthBarWidget->SetHealthPercent(Attributes->GetHealthPercent());
@@ -354,7 +364,7 @@ void AEnemy::MoveToTarget(AActor* Target)
 
 	FAIMoveRequest MoveRequest;
 	MoveRequest.SetGoalActor(Target);
-	MoveRequest.SetAcceptanceRadius(40.f);
+	MoveRequest.SetAcceptanceRadius(AcceptanceRadius);
 
 	EnemyController->MoveTo(MoveRequest);
 }
@@ -385,9 +395,15 @@ void AEnemy::SpawnDefaultWeapon()
 	UWorld* World = GetWorld();
 	if (World && WeaponClass)
 	{
+		// 원본 스폰
 		AWeapon* DefaultWeapon = World->SpawnActor<AWeapon>(WeaponClass);
-		DefaultWeapon->Equip(GetMesh(), FName("RightHandSocket"), this, this);
-		EquippedWeapon = DefaultWeapon;
+		if (DefaultWeapon)
+		{
+			// Equip 후, 새 무기 인스턴스를 반환받음
+			AWeapon* Equipped = DefaultWeapon->Equip(GetMesh(), FName("WeaponSocket"), this, this);
+
+			EquippedWeapon = Equipped;
+		}
 	}
 }
 

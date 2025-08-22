@@ -1,0 +1,9 @@
+<map id="ASlashHUD" name="ASlashHUD">
+<area shape="rect" id="Node000001" title=" " alt="" coords="5,385,136,476"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="25,188,74,257"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="57,272,69,385,64,386,52,272"/>
+<area shape="rect" id="Node000003" href="$class_u_slash_overlay.html" title=" " alt="" coords="99,124,264,321"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="131,323,105,372,100,370,127,320"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="137,5,226,75"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="184,89,184,124,179,124,179,89"/>
+</map>

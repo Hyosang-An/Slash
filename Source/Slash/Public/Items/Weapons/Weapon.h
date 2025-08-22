@@ -22,7 +22,7 @@ public:
 	void PlayEquipSound();
 	void DisableSphereCollision();
 	void DeactivateEmbers();
-	void Equip(USceneComponent* InParent, FName InSocketName, AActor* NewOwner, APawn* NewInstigator);
+	AWeapon* Equip(USceneComponent* InParent, FName InSocketName, AActor* NewOwner, APawn* NewInstigator);
 	void ExecuteGetHit(FHitResult& BoxHit);
 	bool ActorIsSameType(AActor* OtherActor);
 

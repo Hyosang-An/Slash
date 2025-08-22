@@ -1,0 +1,44 @@
+# ===== 입력/출력 =====
+PROJECT_NAME           = "Slash"
+INPUT                  = Source
+RECURSIVE              = YES
+FILE_PATTERNS          = *.h *.hpp *.cpp
+OUTPUT_DIRECTORY       = Docs/Doxygen
+GENERATE_LATEX         = NO
+GENERATE_HTML          = YES
+EXTRACT_ALL            = YES
+EXTRACT_PRIVATE        = YES
+EXTRACT_STATIC         = YES
+SOURCE_BROWSER         = NO
+GENERATE_TREEVIEW      = YES
+
+# 빌드 산출물/외부 제외
+EXCLUDE_PATTERNS       = */Binaries/* */Intermediate/* */Saved/* */DerivedDataCache/* */ThirdParty/*
+
+# ===== 전처리/UE 매크로 무력화 =====
+ENABLE_PREPROCESSING   = YES
+MACRO_EXPANSION        = YES
+EXPAND_ONLY_PREDEF     = YES
+
+PREDEFINED             += UCLASS(x)=
+PREDEFINED             += USTRUCT(x)=
+PREDEFINED             += UENUM(x)=
+PREDEFINED             += UINTERFACE(x)=
+PREDEFINED             += UFUNCTION(x)=
+PREDEFINED             += UPROPERTY(x)=
+PREDEFINED             += UDELEGATE(x)=
+PREDEFINED             += GENERATED_BODY()=
+PREDEFINED             += GENERATED_UCLASS_BODY()=
+PREDEFINED             += GENERATED_USTRUCT_BODY()=
+PREDEFINED             += UENUM_CLASS_FLAGS(x)=
+PREDEFINED             += FORCEINLINE=inline
+PREDEFINED             += UE_DEPRECATED(x)=
+PREDEFINED             += UE_DEPRECATED_MACRO(x)=
+
+# ===== Graphviz / UML 다이어그램 =====
+HAVE_DOT               = YES
+DOT_IMAGE_FORMAT       = svg
+UML_LOOK               = YES
+DOT_MULTI_TARGETS      = YES
+DOT_GRAPH_MAX_NODES    = 150
+MAX_DOT_GRAPH_DEPTH    = 4
